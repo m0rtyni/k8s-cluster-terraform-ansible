@@ -1,0 +1,133 @@
+# Cluster
+cluster_name: "kubernetes"
+kubernetes_version: "v1.32.0"
+etcd_version: "v3.5.17"
+containerd_version: "1.7.24"
+
+# Network
+cluster_cidr: "10.200.0.0/16"
+service_cidr: "10.32.0.0/24"
+dns_service_ip: "10.32.0.10"
+pod_network_plugin: "calico"
+
+# Nodes
+control_plane_host: "10.20.1.10"
+control_plane_endpoint: "10.20.1.10"
+kubernetes_api_port: 6443
+
+kubernetes_nodes:
+  - name: "control-plane"
+    private_ip: "10.20.1.10"
+    role: "control-plane"
+  - name: "worker-1"
+    private_ip: "10.20.1.11"
+    role: "worker"
+  - name: "worker-2"
+    private_ip: "10.20.1.12"
+    role: "worker"
+
+# Paths
+cert_dir: "/etc/kubernetes/pki"
+config_dir: "/etc/kubernetes"
+bin_dir: "/usr/local/bin"
+etcd_data_dir: "/var/lib/etcd"
+containerd_config_dir: "/etc/containerd"
+
+# Local generated artifacts
+local_certificate_dir: "{{ playbook_dir }}/artifacts/pki"
+local_config_dir: "{{ playbook_dir }}/artifacts/configs"
+certificate_validity_days: 3650
+
+# API server certificate SANs
+certificate_sans:
+  - "10.20.1.10"
+  - "127.0.0.1"
+  - "localhost"
+  - "kubernetes"
+  - "kubernetes.default"
+  - "kubernetes.default.svc"
+  - "kubernetes.default.svc.cluster.local"
+
+# Kubernetes components
+kubelet_config_dir: "/var/lib/kubelet"
+systemd_dir: "/etc/systemd/system"
+
+# Certificate definitions
+certificate_profiles:
+  - name: "apiserver"
+    common_name: "kube-apiserver"
+    dns_names:
+      - "kubernetes"
+      - "kubernetes.default"
+      - "kubernetes.default.svc"
+      - "kubernetes.default.svc.cluster.local"
+      - "localhost"
+      - "control-plane"
+    ip_addresses:
+      - "10.20.1.10"
+      - "10.32.0.1"
+      - "127.0.0.1"
+    extended_usage: [serverAuth, clientAuth]
+
+  - name: "etcd-server"
+    common_name: "etcd"
+    dns_names: [localhost, control-plane]
+    ip_addresses: ["10.20.1.10", "127.0.0.1"]
+    extended_usage: [serverAuth, clientAuth]
+
+  - name: "etcd-peer"
+    common_name: "etcd-peer"
+    dns_names: [control-plane]
+    ip_addresses: ["10.20.1.10"]
+    extended_usage: [serverAuth, clientAuth]
+
+  - name: "apiserver-etcd-client"
+    common_name: "kube-apiserver-etcd-client"
+    dns_names: []
+    ip_addresses: []
+    extended_usage: [clientAuth]
+
+  - name: "admin"
+    common_name: "admin"
+    organization_name: system:masters
+    dns_names: []
+    ip_addresses: []
+    extended_usage: [clientAuth]
+
+  - name: "controller-manager"
+    common_name: "system:kube-controller-manager"
+    dns_names: []
+    ip_addresses: []
+    extended_usage: [clientAuth]
+
+  - name: "scheduler"
+    common_name: "system:kube-scheduler"
+    dns_names: []
+    ip_addresses: []
+    extended_usage: [clientAuth]
+
+  - name: kube-proxy
+    common_name: system:kube-proxy
+    organization_name: system:node-proxier
+    extended_usage:
+      - clientAuth
+
+  - name: "worker-1"
+    common_name: "system:node:worker-1"
+    organization_name: "system:nodes"
+    dns_names: [worker-1]
+    ip_addresses: ["10.20.1.11"]
+    extended_usage: [serverAuth, clientAuth]
+
+  - name: "worker-2"
+    common_name: "system:node:worker-2"
+    organization_name: "system:nodes"
+    dns_names: [worker-2]
+    ip_addresses: ["10.20.1.12"]
+    extended_usage: [serverAuth, clientAuth]
+
+  - name: "apiserver-kubelet-client"
+    common_name: "kube-apiserver-kubelet-client"
+    dns_names: []
+    ip_addresses: []
+    extended_usage: [clientAuth]

@@ -1,0 +1,32 @@
+[Unit]
+Description=etcd key-value store
+Documentation=https://etcd.io/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart={{ bin_dir }}/etcd \
+  --name=control-plane \
+  --data-dir={{ etcd_data_dir }} \
+  --listen-client-urls=https://127.0.0.1:2379,https://{{ control_plane_host }}:2379 \
+  --advertise-client-urls=https://{{ control_plane_host }}:2379 \
+  --listen-peer-urls=https://{{ control_plane_host }}:2380 \
+  --initial-advertise-peer-urls=https://{{ control_plane_host }}:2380 \
+  --initial-cluster=control-plane=https://{{ control_plane_host }}:2380 \
+  --initial-cluster-state=new \
+  --client-cert-auth=true \
+  --trusted-ca-file=/etc/etcd/pki/ca.crt \
+  --cert-file=/etc/etcd/pki/server.crt \
+  --key-file=/etc/etcd/pki/server.key \
+  --peer-client-cert-auth=true \
+  --peer-trusted-ca-file=/etc/etcd/pki/ca.crt \
+  --peer-cert-file=/etc/etcd/pki/peer.crt \
+  --peer-key-file=/etc/etcd/pki/peer.key
+
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=40000
+
+[Install]
+WantedBy=multi-user.target

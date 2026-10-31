@@ -1,0 +1,21 @@
+[Unit]
+Description=Kubernetes Scheduler
+Documentation=https://kubernetes.io/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart={{ bin_dir }}/kube-scheduler \
+  --authentication-kubeconfig={{ config_dir }}/scheduler.kubeconfig \
+  --authorization-kubeconfig={{ config_dir }}/scheduler.kubeconfig \
+  --bind-address=127.0.0.1 \
+  --kubeconfig={{ config_dir }}/scheduler.kubeconfig \
+  --leader-elect=true \
+  --v=2
+
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=40000
+
+[Install]
+WantedBy=multi-user.target

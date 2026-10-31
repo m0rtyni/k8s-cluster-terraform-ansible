@@ -1,0 +1,59 @@
+- name: Generate Kubernetes certificates
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - generate-certs
+
+- name: Generate Kubernetes configuration files
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - generate-configs
+
+- name: Bootstrap etcd
+  hosts: control_plane
+  become: true
+  roles:
+    - bootstrap-etcd
+
+- name: Bootstrap Kubernetes control plane
+  hosts: control_plane
+  become: true
+  roles:
+    - setup-control-plane
+
+- name: Bootstrap Kubernetes worker nodes
+  hosts: workers
+  become: true
+  roles:
+    - setup-worker-nodes
+
+- name: Configure Kubernetes kube-proxy
+  hosts: k8s_cluster
+  become: true
+  tasks:
+    - name: Run kube-proxy configuration tasks
+      ansible.builtin.import_role:
+        name: setup-networking
+        tasks_from: kube-proxy
+
+- name: Configure Kubernetes networking
+  hosts: control_plane
+  become: true
+  roles:
+    - setup-networking
+
+- name: Configure remote kubectl access
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - configure-kubectl
+
+- name: Run Kubernetes smoke tests
+  hosts: control_plane
+  become: true
+  roles:
+    - smoke-test

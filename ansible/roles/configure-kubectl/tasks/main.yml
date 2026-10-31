@@ -1,0 +1,24 @@
+- name: Create local kubeconfig directory
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube"
+    state: directory
+    mode: "0700"
+
+- name: Copy admin kubeconfig from control plane
+  ansible.builtin.fetch:
+    src: "{{ config_dir }}/admin.kubeconfig"
+    dest: "{{ lookup('env', 'HOME') }}/.kube/config"
+    flat: true
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  become: true
+
+- name: Configure local API Server endpoint
+  ansible.builtin.replace:
+    path: "{{ lookup('env', 'HOME') }}/.kube/config"
+    regexp: "https://{{ control_plane_endpoint | regex_escape }}:{{ kubernetes_api_port }}"
+    replace: "https://127.0.0.1:{{ kubernetes_api_port }}"
+
+- name: Set local kubeconfig permissions
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube/config"
+    mode: "0600"

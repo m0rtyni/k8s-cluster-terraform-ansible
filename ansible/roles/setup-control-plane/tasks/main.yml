@@ -1,0 +1,315 @@
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - socat
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create Kubernetes directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ bin_dir }}"
+    - "{{ config_dir }}"
+    - "{{ cert_dir }}"
+    - /var/lib/kubernetes
+
+- name: Download Kubernetes server binaries
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/{{ kubernetes_version }}/bin/linux/amd64/{{ item }}"
+    dest: "/tmp/{{ item }}"
+    mode: "0644"
+  loop:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+    - kubectl
+
+- name: Install Kubernetes control plane binaries
+  ansible.builtin.copy:
+    src: "/tmp/{{ item }}"
+    dest: "{{ bin_dir }}/{{ item }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+    - kubectl
+
+- name: Install Kubernetes CA certificate
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/ca.crt"
+    dest: "{{ cert_dir }}/ca.crt"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install API server certificate and key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/{{ item.src }}"
+    dest: "{{ cert_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "apiserver.crt", dest: "apiserver.crt", mode: "0644" }
+    - { src: "apiserver.key", dest: "apiserver.key", mode: "0600" }
+    - { src: "apiserver-etcd-client.crt", dest: "apiserver-etcd-client.crt", mode: "0644" }
+    - { src: "apiserver-etcd-client.key", dest: "apiserver-etcd-client.key", mode: "0600" }
+    - { src: "apiserver-kubelet-client.crt", dest: "apiserver-kubelet-client.crt", mode: "0644" }
+    - { src: "apiserver-kubelet-client.key", dest: "apiserver-kubelet-client.key", mode: "0600" }
+
+- name: Install controller manager certificate and key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/{{ item.src }}"
+    dest: "{{ cert_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "controller-manager.crt", dest: "controller-manager.crt", mode: "0644" }
+    - { src: "controller-manager.key", dest: "controller-manager.key", mode: "0600" }
+
+- name: Install scheduler certificate and key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/{{ item.src }}"
+    dest: "{{ cert_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "scheduler.crt", dest: "scheduler.crt", mode: "0644" }
+    - { src: "scheduler.key", dest: "scheduler.key", mode: "0600" }
+
+- name: Install admin kubeconfig
+  ansible.builtin.copy:
+    src: "{{ local_config_dir }}/admin.kubeconfig"
+    dest: "{{ config_dir }}/admin.kubeconfig"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Install ServiceAccount signing and verification keys
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/{{ item.src }}"
+    dest: "{{ cert_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "service-account.key", dest: "service-account.key", mode: "0600" }
+    - { src: "service-account.pub", dest: "service-account.pub", mode: "0644" }
+
+- name: Generate controller manager kubeconfig
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-cluster
+      - "{{ cluster_name }}"
+      - "--certificate-authority={{ cert_dir }}/ca.crt"
+      - "--embed-certs=true"
+      - "--server=https://{{ control_plane_endpoint }}:{{ kubernetes_api_port }}"
+      - "--kubeconfig={{ config_dir }}/controller-manager.kubeconfig"
+  changed_when: true
+
+- name: Configure controller manager credentials
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-credentials
+      - system:kube-controller-manager
+      - "--client-certificate={{ cert_dir }}/controller-manager.crt"
+      - "--client-key={{ cert_dir }}/controller-manager.key"
+      - "--embed-certs=true"
+      - "--kubeconfig={{ config_dir }}/controller-manager.kubeconfig"
+  changed_when: true
+
+- name: Configure controller manager context
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-context
+      - system:kube-controller-manager@{{ cluster_name }}
+      - "--cluster={{ cluster_name }}"
+      - "--user=system:kube-controller-manager"
+      - "--kubeconfig={{ config_dir }}/controller-manager.kubeconfig"
+  changed_when: true
+
+- name: Set controller manager context
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - use-context
+      - system:kube-controller-manager@{{ cluster_name }}
+      - "--kubeconfig={{ config_dir }}/controller-manager.kubeconfig"
+  changed_when: true
+
+- name: Generate scheduler kubeconfig
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-cluster
+      - "{{ cluster_name }}"
+      - "--certificate-authority={{ cert_dir }}/ca.crt"
+      - "--embed-certs=true"
+      - "--server=https://{{ control_plane_endpoint }}:{{ kubernetes_api_port }}"
+      - "--kubeconfig={{ config_dir }}/scheduler.kubeconfig"
+  changed_when: true
+
+- name: Configure scheduler credentials
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-credentials
+      - system:kube-scheduler
+      - "--client-certificate={{ cert_dir }}/scheduler.crt"
+      - "--client-key={{ cert_dir }}/scheduler.key"
+      - "--embed-certs=true"
+      - "--kubeconfig={{ config_dir }}/scheduler.kubeconfig"
+  changed_when: true
+
+- name: Configure scheduler context
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-context
+      - system:kube-scheduler@{{ cluster_name }}
+      - "--cluster={{ cluster_name }}"
+      - "--user=system:kube-scheduler"
+      - "--kubeconfig={{ config_dir }}/scheduler.kubeconfig"
+  changed_when: true
+
+- name: Set scheduler context
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - use-context
+      - system:kube-scheduler@{{ cluster_name }}
+      - "--kubeconfig={{ config_dir }}/scheduler.kubeconfig"
+  changed_when: true
+
+- name: Restrict control plane kubeconfig permissions
+  ansible.builtin.file:
+    path: "{{ config_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop:
+    - controller-manager.kubeconfig
+    - scheduler.kubeconfig
+
+- name: Check whether Kubernetes encryption key exists
+  ansible.builtin.stat:
+    path: /var/lib/kubernetes/encryption-key
+  register: encryption_key_file
+
+- name: Generate Kubernetes encryption key
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - rand
+      - -base64
+      - "32"
+  register: encryption_key
+  changed_when: true
+  when: not encryption_key_file.stat.exists
+  no_log: true
+
+- name: Save Kubernetes encryption key
+  ansible.builtin.copy:
+    content: "{{ encryption_key.stdout }}\n"
+    dest: /var/lib/kubernetes/encryption-key
+    owner: root
+    group: root
+    mode: "0600"
+  when: not encryption_key_file.stat.exists
+  no_log: true
+
+- name: Read Kubernetes encryption key
+  ansible.builtin.slurp:
+    src: /var/lib/kubernetes/encryption-key
+  register: stored_encryption_key
+  no_log: true
+
+- name: Create encryption configuration
+  ansible.builtin.template:
+    src: encryption-config.yaml.j2
+    dest: /var/lib/kubernetes/encryption-config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  vars:
+    encryption_key_value: "{{ stored_encryption_key.content | b64decode | trim }}"
+  notify: Restart Kubernetes control plane
+
+- name: Install Kubernetes control plane systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ systemd_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: "kube-apiserver.service.j2", dest: "kube-apiserver.service" }
+    - { src: "kube-controller-manager.service.j2", dest: "kube-controller-manager.service" }
+    - { src: "kube-scheduler.service.j2", dest: "kube-scheduler.service" }
+  notify: Restart Kubernetes control plane
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start Kubernetes API Server
+  ansible.builtin.systemd:
+    name: kube-apiserver
+    enabled: true
+    state: started
+
+- name: Enable and start Kubernetes Controller Manager
+  ansible.builtin.systemd:
+    name: kube-controller-manager
+    enabled: true
+    state: started
+
+- name: Enable and start Kubernetes Scheduler
+  ansible.builtin.systemd:
+    name: kube-scheduler
+    enabled: true
+    state: started
+
+- name: Install kubelet API RBAC binding
+  ansible.builtin.template:
+    src: kubelet-rbac.yaml.j2
+    dest: /etc/kubernetes/kubelet-rbac.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Apply kubelet API RBAC binding
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig=/etc/kubernetes/admin.kubeconfig
+      - apply
+      - -f
+      - /etc/kubernetes/kubelet-rbac.yaml
+  register: kubelet_rbac_apply
+  changed_when: "'created' in kubelet_rbac_apply.stdout or 'configured' in kubelet_rbac_apply.stdout"

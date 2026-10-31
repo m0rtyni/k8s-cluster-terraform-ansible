@@ -1,0 +1,102 @@
+- name: Wait for Kubernetes API Server
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - nodes
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: api_check
+  retries: 30
+  delay: 10
+  until: api_check.rc == 0
+  changed_when: false
+
+- name: Download Calico networking manifest
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/v3.29.2/manifests/calico.yaml"
+    dest: "/tmp/calico.yaml"
+    mode: "0644"
+
+- name: Configure Calico pod network CIDR
+  ansible.builtin.replace:
+    path: /tmp/calico.yaml
+    regexp: 'value: "192.168.0.0/16"'
+    replace: 'value: "{{ cluster_cidr }}"'
+
+- name: Apply Calico networking manifest
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - /tmp/calico.yaml
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: calico_apply
+  changed_when: "'created' in calico_apply.stdout or 'configured' in calico_apply.stdout"
+
+- name: Wait for Calico node DaemonSet rollout
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - rollout
+      - status
+      - daemonset/calico-node
+      - -n
+      - kube-system
+      - --timeout=300s
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  changed_when: false
+
+- name: Wait for all Kubernetes nodes to become Ready
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --for=condition=Ready
+      - nodes
+      - --all
+      - --timeout=300s
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: nodes_ready
+  retries: 3
+  delay: 10
+  until: nodes_ready.rc == 0
+  changed_when: false
+
+- name: Deploy CoreDNS
+  ansible.builtin.template:
+    src: coredns.yaml.j2
+    dest: /tmp/coredns.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Apply CoreDNS manifest
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - /tmp/coredns.yaml
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: coredns_apply
+  changed_when: "'created' in coredns_apply.stdout or 'configured' in coredns_apply.stdout"
+
+- name: Wait for CoreDNS rollout
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - rollout
+      - status
+      - deployment/coredns
+      - -n
+      - kube-system
+      - --timeout=300s
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  changed_when: false

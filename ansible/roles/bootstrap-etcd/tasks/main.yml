@@ -1,0 +1,125 @@
+- name: Install packages required by etcd
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create etcd directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ etcd_data_dir }}", mode: "0700" }
+    - { path: "/etc/etcd", mode: "0750" }
+    - { path: "/etc/etcd/pki", mode: "0750" }
+
+- name: Download etcd archive
+  ansible.builtin.get_url:
+    url: "https://github.com/etcd-io/etcd/releases/download/{{ etcd_version }}/etcd-{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: "/tmp/etcd-{{ etcd_version }}-linux-amd64.tar.gz"
+    mode: "0644"
+
+- name: Extract etcd archive
+  ansible.builtin.unarchive:
+    src: "/tmp/etcd-{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: "/tmp"
+    remote_src: true
+    creates: "/tmp/etcd-{{ etcd_version }}-linux-amd64/etcd"
+
+- name: Install etcd binaries
+  ansible.builtin.copy:
+    src: "/tmp/etcd-{{ etcd_version }}-linux-amd64/{{ item }}"
+    dest: "{{ bin_dir }}/{{ item }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - etcd
+    - etcdctl
+
+- name: Install etcd CA certificate
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/ca.crt"
+    dest: "/etc/etcd/pki/ca.crt"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart etcd
+
+- name: Install etcd server certificate
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/etcd-server.crt"
+    dest: "/etc/etcd/pki/server.crt"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart etcd
+
+- name: Install etcd server private key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/etcd-server.key"
+    dest: "/etc/etcd/pki/server.key"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart etcd
+
+- name: Install etcd peer certificate
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/etcd-peer.crt"
+    dest: "/etc/etcd/pki/peer.crt"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart etcd
+
+- name: Install etcd peer private key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/etcd-peer.key"
+    dest: "/etc/etcd/pki/peer.key"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart etcd
+
+- name: Install API server etcd client certificate
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/apiserver-etcd-client.crt"
+    dest: "/etc/etcd/pki/apiserver-etcd-client.crt"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install API server etcd client private key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/apiserver-etcd-client.key"
+    dest: "/etc/etcd/pki/apiserver-etcd-client.key"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Install etcd systemd unit
+  ansible.builtin.template:
+    src: "etcd.service.j2"
+    dest: "/etc/systemd/system/etcd.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart etcd
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start etcd
+  ansible.builtin.systemd:
+    name: etcd
+    enabled: true
+    state: started

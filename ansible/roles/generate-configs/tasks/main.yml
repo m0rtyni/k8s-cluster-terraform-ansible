@@ -1,0 +1,103 @@
+- name: Create local kubeconfig directory
+  ansible.builtin.file:
+    path: "{{ local_config_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Generate kubeconfig files
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-cluster
+      - "{{ cluster_name }}"
+      - "--certificate-authority={{ local_certificate_dir }}/ca.crt"
+      - "--embed-certs=true"
+      - "--server=https://{{ control_plane_endpoint }}:{{ kubernetes_api_port }}"
+      - "--kubeconfig={{ local_config_dir }}/{{ item.name }}.kubeconfig"
+  loop:
+    - { name: "admin" }
+    - { name: "kube-proxy" }
+    - { name: "controller-manager" }
+    - { name: "scheduler" }
+    - { name: "worker-1" }
+    - { name: "worker-2" }
+  loop_control:
+    label: "{{ item.name }}"
+  environment:
+    KUBECONFIG: ""
+  register: kubeconfig_clusters
+  changed_when: true
+
+- name: Configure kubeconfig credentials
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-credentials
+      - "{{ item.name }}"
+      - "--client-certificate={{ local_certificate_dir }}/{{ item.name }}.crt"
+      - "--client-key={{ local_certificate_dir }}/{{ item.name }}.key"
+      - "--embed-certs=true"
+      - "--kubeconfig={{ local_config_dir }}/{{ item.name }}.kubeconfig"
+  loop:
+    - { name: "admin" }
+    - { name: "kube-proxy" }
+    - { name: "controller-manager" }
+    - { name: "scheduler" }
+    - { name: "worker-1" }
+    - { name: "worker-2" }
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: true
+
+- name: Configure kubeconfig contexts
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - set-context
+      - "{{ item.name }}@{{ cluster_name }}"
+      - "--cluster={{ cluster_name }}"
+      - "--user={{ item.name }}"
+      - "--kubeconfig={{ local_config_dir }}/{{ item.name }}.kubeconfig"
+  loop:
+    - { name: "admin" }
+    - { name: "kube-proxy" }
+    - { name: "controller-manager" }
+    - { name: "scheduler" }
+    - { name: "worker-1" }
+    - { name: "worker-2" }
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: true
+
+- name: Set current context in kubeconfig files
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - config
+      - use-context
+      - "{{ item.name }}@{{ cluster_name }}"
+      - "--kubeconfig={{ local_config_dir }}/{{ item.name }}.kubeconfig"
+  loop:
+    - { name: "admin" }
+    - { name: "kube-proxy" }
+    - { name: "controller-manager" }
+    - { name: "scheduler" }
+    - { name: "worker-1" }
+    - { name: "worker-2" }
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: true
+
+- name: Restrict kubeconfig permissions
+  ansible.builtin.file:
+    path: "{{ local_config_dir }}/{{ item }}.kubeconfig"
+    mode: "0600"
+  loop:
+    - admin
+    - controller-manager
+    - scheduler
+    - worker-1
+    - worker-2

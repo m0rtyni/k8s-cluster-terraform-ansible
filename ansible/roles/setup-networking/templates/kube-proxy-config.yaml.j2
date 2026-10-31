@@ -1,0 +1,20 @@
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+
+clientConnection:
+  kubeconfig: /var/lib/kube-proxy/kubeconfig
+  qps: 5
+  burst: 10
+
+bindAddress: "{{ private_ip }}"
+healthzBindAddress: "127.0.0.1:10256"
+metricsBindAddress: "127.0.0.1:10249"
+
+clusterCIDR: "{{ cluster_cidr }}"
+hostnameOverride: "{{ inventory_hostname }}"
+mode: "iptables"
+
+iptables:
+  masqueradeAll: false
+  syncPeriod: 30s
+  minSyncPeriod: 0s

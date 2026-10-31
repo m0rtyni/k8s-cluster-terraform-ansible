@@ -1,0 +1,120 @@
+- name: Create local artifact directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ local_certificate_dir }}"
+    - "{{ local_config_dir }}"
+
+- name: Generate Kubernetes CA private key
+  community.crypto.openssl_privatekey:
+    path: "{{ local_certificate_dir }}/ca.key"
+    type: RSA
+    size: 4096
+    mode: "0600"
+
+- name: Generate Kubernetes CA CSR
+  community.crypto.openssl_csr:
+    path: "{{ local_certificate_dir }}/ca.csr"
+    privatekey_path: "{{ local_certificate_dir }}/ca.key"
+    common_name: Kubernetes
+    basic_constraints:
+      - "CA:TRUE"
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+      - cRLSign
+    key_usage_critical: true
+
+- name: Generate ServiceAccount signing private key
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - genrsa
+      - -out
+      - "{{ local_certificate_dir }}/service-account.key"
+      - "3072"
+    creates: "{{ local_certificate_dir }}/service-account.key"
+
+- name: Generate ServiceAccount verification public key
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - rsa
+      - -in
+      - "{{ local_certificate_dir }}/service-account.key"
+      - -pubout
+      - -out
+      - "{{ local_certificate_dir }}/service-account.pub"
+    creates: "{{ local_certificate_dir }}/service-account.pub"
+
+- name: Set ServiceAccount key permissions
+  ansible.builtin.file:
+    path: "{{ local_certificate_dir }}/{{ item.name }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: "service-account.key", mode: "0600" }
+    - { name: "service-account.pub", mode: "0644" }
+
+- name: Create self-signed Kubernetes CA certificate
+  community.crypto.x509_certificate:
+    path: "{{ local_certificate_dir }}/ca.crt"
+    csr_path: "{{ local_certificate_dir }}/ca.csr"
+    privatekey_path: "{{ local_certificate_dir }}/ca.key"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ certificate_validity_days }}d"
+    selfsigned_not_before: "-1d"
+    selfsigned_digest: sha256
+    mode: "0644"
+
+- name: Generate private keys for certificate profiles
+  community.crypto.openssl_privatekey:
+    path: "{{ local_certificate_dir }}/{{ item.name }}.key"
+    type: RSA
+    size: 3072
+    mode: "0600"
+  loop: "{{ certificate_profiles }}"
+
+- name: Generate certificate signing requests
+  community.crypto.openssl_csr:
+    path: "{{ local_certificate_dir }}/{{ item.name }}.csr"
+    privatekey_path: "{{ local_certificate_dir }}/{{ item.name }}.key"
+    common_name: "{{ item.common_name }}"
+    organization_name: "{{ item.organization_name | default(omit) }}"
+    subject_alt_name: >-
+      {{
+        (
+          (item.dns_names | default([]) | map('regex_replace', '^', 'DNS:') | list)
+          +
+          (item.ip_addresses | default([]) | map('regex_replace', '^', 'IP:') | list)
+        )
+        if (
+          (item.dns_names | default([]) | length > 0)
+          or
+          (item.ip_addresses | default([]) | length > 0)
+        )
+        else omit
+      }}
+    extended_key_usage: "{{ item.extended_usage }}"
+    basic_constraints:
+      - "CA:FALSE"
+    basic_constraints_critical: true
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    key_usage_critical: true
+  loop: "{{ certificate_profiles }}"
+
+- name: Sign component certificates with Kubernetes CA
+  community.crypto.x509_certificate:
+    path: "{{ local_certificate_dir }}/{{ item.name }}.crt"
+    csr_path: "{{ local_certificate_dir }}/{{ item.name }}.csr"
+    ownca_path: "{{ local_certificate_dir }}/ca.crt"
+    ownca_privatekey_path: "{{ local_certificate_dir }}/ca.key"
+    provider: ownca
+    ownca_not_after: "+{{ certificate_validity_days }}d"
+    ownca_not_before: "-1d"
+    ownca_digest: sha256
+    mode: "0644"
+  loop: "{{ certificate_profiles }}"

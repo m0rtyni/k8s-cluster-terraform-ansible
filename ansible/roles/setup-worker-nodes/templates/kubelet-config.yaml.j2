@@ -1,0 +1,31 @@
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+
+address: {{ ansible_default_ipv4.address }}
+port: 10250
+readOnlyPort: 0
+
+authentication:
+  anonymous:
+    enabled: false
+  x509:
+    clientCAFile: {{ cert_dir }}/ca.crt
+  webhook:
+    enabled: true
+
+authorization:
+  mode: Webhook
+
+clusterDomain: cluster.local
+clusterDNS:
+  - {{ dns_service_ip }}
+resolvConf: /run/systemd/resolve/resolv.conf
+
+containerRuntimeEndpoint: unix:///run/containerd/containerd.sock
+cgroupDriver: systemd
+staticPodPath: {{ config_dir }}/manifests
+
+tlsCertFile: {{ cert_dir }}/kubelet.crt
+tlsPrivateKeyFile: {{ cert_dir }}/kubelet.key
+
+staticPodPath: {{ config_dir }}/manifests

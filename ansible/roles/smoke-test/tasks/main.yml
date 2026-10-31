@@ -1,0 +1,67 @@
+- name: Check Kubernetes nodes
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - nodes
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: nodes_check
+  changed_when: false
+
+- name: Display Kubernetes nodes
+  ansible.builtin.debug:
+    var: nodes_check.stdout_lines
+
+- name: Check system pods
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - pods
+      - -n
+      - kube-system
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: pods_check
+  changed_when: false
+
+- name: Display system pods
+  ansible.builtin.debug:
+    var: pods_check.stdout_lines
+
+- name: Check CoreDNS rollout
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - rollout
+      - status
+      - deployment/coredns
+      - -n
+      - kube-system
+      - --timeout=300s
+      - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
+  changed_when: false
+
+- name: Test cluster DNS resolution
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - run
+      - dns-test
+      - --image=busybox:1.36
+      - --restart=Never
+      - --rm
+      - -i
+      - --command
+      - --
+      - nslookup
+      - kubernetes.default.svc.cluster.local
+      - "{{ config_dir }}/admin.kubeconfig"
+  register: dns_check
+  retries: 3
+  delay: 10
+  until: dns_check.rc == 0
+  changed_when: false

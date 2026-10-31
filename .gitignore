@@ -1,0 +1,39 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+**/tfplan
+*.tfplan
+
+# Ansible
+ansible/artifacts/
+*.retry
+.vault_password
+
+# SSH keys and certificates
+*.pem
+*.key
+k8s-cluster-ansible
+k8s-cluster-ansible.pub
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
