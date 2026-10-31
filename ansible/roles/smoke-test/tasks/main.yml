@@ -49,6 +49,7 @@
     argv:
       - kubectl
       - --kubeconfig
+      - "{{ config_dir }}/admin.kubeconfig"
       - run
       - dns-test
       - --image=busybox:1.36
@@ -59,7 +60,6 @@
       - --
       - nslookup
       - kubernetes.default.svc.cluster.local
-      - "{{ config_dir }}/admin.kubeconfig"
   register: dns_check
   retries: 3
   delay: 10

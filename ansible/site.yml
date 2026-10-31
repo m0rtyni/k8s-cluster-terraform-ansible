@@ -30,6 +30,19 @@
   roles:
     - setup-worker-nodes
 
+- name: Configure cluster node hostname resolution
+  hosts: k8s_cluster
+  become: true
+  tasks:
+    - name: Add cluster nodes to /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} KUBERNETES CLUSTER NODES"
+        block: |
+          10.20.1.10 control-plane
+          10.20.1.11 worker-1
+          10.20.1.12 worker-2
+
 - name: Configure Kubernetes kube-proxy
   hosts: k8s_cluster
   become: true

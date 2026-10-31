@@ -4,13 +4,22 @@
     state: directory
     mode: "0700"
 
-- name: Copy admin kubeconfig from control plane
-  ansible.builtin.fetch:
-    src: "{{ config_dir }}/admin.kubeconfig"
-    dest: "{{ lookup('env', 'HOME') }}/.kube/config"
-    flat: true
+- name: Read admin kubeconfig from control plane
+  ansible.builtin.command:
+    cmd: "cat {{ config_dir }}/admin.kubeconfig"
   delegate_to: "{{ groups['control_plane'][0] }}"
+  vars:
+    ansible_connection: ssh
   become: true
+  register: admin_kubeconfig_content
+  changed_when: false
+  no_log: true
+
+- name: Save admin kubeconfig locally
+  ansible.builtin.copy:
+    content: "{{ admin_kubeconfig_content.stdout }}"
+    dest: "{{ lookup('env', 'HOME') }}/.kube/config"
+    mode: "0600"
 
 - name: Configure local API Server endpoint
   ansible.builtin.replace:
