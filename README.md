@@ -535,3 +535,107 @@ A self-managed Kubernetes cluster consisting of one control-plane node and two w
 The deployment demonstrates the process of building a Kubernetes cluster from individual components using Terraform and Ansible, including certificate management, control-plane configuration, worker setup, networking, DNS, RBAC, and operational validation.
 
 The project can be redeployed using the Terraform infrastructure definitions and the Ansible playbook.
+
+## 12. Kubernetes Monitoring with Lens and Prometheus
+
+### 12.1. Lens IDE
+
+Lens is a desktop IDE for working with Kubernetes clusters. It provides a graphical interface for inspecting cluster resources, managing workloads, viewing logs, and monitoring resource usage.
+
+Lens Desktop was installed and configured to connect to the deployed Kubernetes cluster using the generated administrator kubeconfig.
+
+The cluster is available in Lens as `admin@kubernetes`.
+
+### 12.2. Prometheus Installation
+
+Prometheus was deployed using the `kube-prometheus-stack` Helm chart through the Lens Helm Charts interface.
+
+Installation details:
+
+| Parameter | Value |
+|---|---|
+| Helm repository | `prometheus-community` |
+| Chart | `kube-prometheus-stack` |
+| Chart version | `92.17.1` |
+| Namespace | `monitoring` |
+| Release name | `kube-prometheus-stack` |
+| Configuration | Default Helm values |
+
+The chart deploys Prometheus and its supporting components, including the Prometheus Operator, Alertmanager, Grafana, kube-state-metrics, and Prometheus Node Exporter.
+
+### 12.3. Metrics Server
+
+Metrics Server was installed in the `kube-system` namespace using the official Kubernetes manifest.
+
+The manifest is stored in the repository at:
+
+`monitoring/metrics-server.yaml`
+
+To install or reapply it:
+
+```bash
+kubectl apply -f monitoring/metrics-server.yaml
+```
+
+Metrics Server provides basic CPU and memory usage metrics for Kubernetes nodes and Pods. These metrics are available through the Kubernetes Metrics API and can be inspected using:
+
+```bash
+kubectl top nodes
+kubectl top pods -A
+```
+
+The API Server aggregation layer was also configured to support the Metrics API.
+
+### 12.4. Lens Metrics Configuration
+
+Lens automatically detected Prometheus Operator in the cluster.
+
+The detected Prometheus service endpoint was:
+
+`monitoring/services/prometheus-operated:9090`
+
+Prometheus was selected as the metrics source in the Lens cluster settings.
+
+After configuration, Lens displayed CPU and memory usage information for nodes and Pods directly in its interface.
+
+### 12.5. Monitoring Validation
+
+The monitoring components were checked after installation.
+
+| Component | Validation | Result |
+|---|---|---|
+| Metrics Server | Deployment status | Passed |
+| Metrics API | APIService available | Passed |
+| Node metrics | `kubectl top nodes` | Passed |
+| Pod metrics | `kubectl top pods -A` | Passed |
+| Prometheus | Prometheus Pods running | Passed |
+| Lens integration | Prometheus automatically detected | Passed |
+| Lens Metrics | Resource metrics displayed | Passed |
+
+All monitoring components were operational, and Lens successfully displayed cluster metrics using Prometheus.
+
+### 12.6. Metrics Server and Prometheus
+
+Metrics Server and Prometheus serve different purposes:
+
+- **Metrics Server** provides basic, short-term resource usage metrics for Kubernetes nodes and Pods. It is commonly used by `kubectl top` and the Horizontal Pod Autoscaler.
+- **Prometheus** collects and stores time-series metrics, supports querying through PromQL, and provides the foundation for monitoring and alerting.
+
+Both components are used in this project to provide basic Kubernetes resource metrics and a more comprehensive monitoring solution.
+
+## 13. Final Project Result
+
+In addition to the Kubernetes cluster bootstrap, the project includes a monitoring setup using Metrics Server, Prometheus, and Lens Desktop.
+
+The resulting environment demonstrates:
+
+- Infrastructure provisioning with Terraform.
+- Kubernetes cluster bootstrap and configuration with Ansible.
+- Manual setup of Kubernetes control-plane and worker components.
+- Cluster networking and internal DNS configuration.
+- Certificate management and API Server-to-kubelet communication.
+- Kubernetes resource validation and operational testing.
+- Graphical cluster management using Lens.
+- Metrics collection and monitoring with Prometheus and Metrics Server.
+
+The monitoring components are maintained separately from the core Ansible bootstrap process. They can be installed independently after the Kubernetes cluster has been deployed.

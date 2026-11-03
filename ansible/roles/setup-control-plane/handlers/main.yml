@@ -1,9 +1,5 @@
 - name: Restart Kubernetes control plane
   ansible.builtin.systemd:
-    name: "{{ item }}"
+    name: kube-apiserver
     state: restarted
     daemon_reload: true
-  loop:
-    - kube-apiserver
-    - kube-controller-manager
-    - kube-scheduler

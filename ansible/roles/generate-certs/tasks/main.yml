@@ -118,3 +118,68 @@
     ownca_digest: sha256
     mode: "0644"
   loop: "{{ certificate_profiles }}"
+
+- name: Generate front-proxy CA private key
+  community.crypto.openssl_privatekey:
+    path: "{{ local_certificate_dir }}/front-proxy-ca.key"
+    type: RSA
+    size: 4096
+    mode: "0600"
+
+- name: Generate front-proxy CA CSR
+  community.crypto.openssl_csr:
+    path: "{{ local_certificate_dir }}/front-proxy-ca.csr"
+    privatekey_path: "{{ local_certificate_dir }}/front-proxy-ca.key"
+    common_name: Kubernetes Front Proxy CA
+    basic_constraints:
+      - "CA:TRUE"
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+      - cRLSign
+    key_usage_critical: true
+
+- name: Create self-signed front-proxy CA certificate
+  community.crypto.x509_certificate:
+    path: "{{ local_certificate_dir }}/front-proxy-ca.crt"
+    csr_path: "{{ local_certificate_dir }}/front-proxy-ca.csr"
+    privatekey_path: "{{ local_certificate_dir }}/front-proxy-ca.key"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ certificate_validity_days }}d"
+    selfsigned_not_before: "-1d"
+    selfsigned_digest: sha256
+    mode: "0644"
+
+- name: Generate front-proxy client private key
+  community.crypto.openssl_privatekey:
+    path: "{{ local_certificate_dir }}/front-proxy-client.key"
+    type: RSA
+    size: 3072
+    mode: "0600"
+
+- name: Generate front-proxy client CSR
+  community.crypto.openssl_csr:
+    path: "{{ local_certificate_dir }}/front-proxy-client.csr"
+    privatekey_path: "{{ local_certificate_dir }}/front-proxy-client.key"
+    common_name: front-proxy-client
+    extended_key_usage:
+      - clientAuth
+    basic_constraints:
+      - "CA:FALSE"
+    basic_constraints_critical: true
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    key_usage_critical: true
+
+- name: Sign front-proxy client certificate
+  community.crypto.x509_certificate:
+    path: "{{ local_certificate_dir }}/front-proxy-client.crt"
+    csr_path: "{{ local_certificate_dir }}/front-proxy-client.csr"
+    ownca_path: "{{ local_certificate_dir }}/front-proxy-ca.crt"
+    ownca_privatekey_path: "{{ local_certificate_dir }}/front-proxy-ca.key"
+    provider: ownca
+    ownca_not_after: "+{{ certificate_validity_days }}d"
+    ownca_not_before: "-1d"
+    ownca_digest: sha256
+    mode: "0644"

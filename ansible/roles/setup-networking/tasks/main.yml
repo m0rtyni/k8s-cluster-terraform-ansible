@@ -100,3 +100,18 @@
       - --kubeconfig
       - "{{ config_dir }}/admin.kubeconfig"
   changed_when: false
+
+- name: Install Calico Pod network route service
+  ansible.builtin.template:
+    src: pod-network-route.service.j2
+    dest: /etc/systemd/system/pod-network-route.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable and start Calico Pod network route service
+  ansible.builtin.systemd:
+    name: pod-network-route
+    daemon_reload: true
+    enabled: true
+    state: started

@@ -1,0 +1,12 @@
+[Unit]
+Description=Route Calico Pod network through worker-2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ip route replace 192.168.133.192/26 via 10.20.1.12
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

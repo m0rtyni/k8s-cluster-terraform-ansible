@@ -54,6 +54,25 @@
     group: root
     mode: "0644"
 
+- name: Install front-proxy CA certificate
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/front-proxy-ca.crt"
+    dest: "{{ cert_dir }}/front-proxy-ca.crt"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install front-proxy client certificate and key
+  ansible.builtin.copy:
+    src: "{{ local_certificate_dir }}/{{ item.src }}"
+    dest: "{{ cert_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "front-proxy-client.crt", dest: "front-proxy-client.crt", mode: "0644" }
+    - { src: "front-proxy-client.key", dest: "front-proxy-client.key", mode: "0600" }
+
 - name: Install API server certificate and key
   ansible.builtin.copy:
     src: "{{ local_certificate_dir }}/{{ item.src }}"
