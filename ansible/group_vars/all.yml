@@ -131,3 +131,10 @@ certificate_profiles:
     dns_names: []
     ip_addresses: []
     extended_usage: [clientAuth]
+
+  - name: "control-plane"
+    common_name: "system:node:control-plane"
+    organization_name: "system:nodes"
+    dns_names: [control-plane]
+    ip_addresses: ["10.20.1.10"]
+    extended_usage: [serverAuth, clientAuth]
