@@ -1,0 +1,439 @@
+apiVersion: v1
+data:
+  events.json: |
+    {
+      "uid": "k8s-events",
+      "title": "Kubernetes Events",
+      "tags": ["kubernetes", "events"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Pod Events by Reason",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "sum by (reason) (event_exporter_pod_event_count)",
+              "legendFormat": "{{reason}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Pod Events by Namespace",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "sum by (exported_namespace) (event_exporter_pod_event_count)",
+              "legendFormat": "{{exported_namespace}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Pod Events Details",
+          "type": "table",
+          "gridPos": {"h": 9, "w": 24, "x": 0, "y": 8},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "event_exporter_pod_event_count",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "__name__": true,
+                  "container": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "namespace": true,
+                  "pod": true,
+                  "service": true
+                },
+                "renameByName": {
+                  "exported_namespace": "Namespace",
+                  "exported_pod": "Pod",
+                  "reason": "Reason",
+                  "Value": "Events"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Event Exporter Health",
+          "type": "stat",
+          "gridPos": {"h": 7, "w": 24, "x": 0, "y": 17},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "event_exporter_events_sent",
+              "legendFormat": "Events sent",
+              "refId": "A"
+            },
+            {
+              "expr": "event_exporter_events_discarded",
+              "legendFormat": "Events discarded",
+              "refId": "B"
+            },
+            {
+              "expr": "event_exporter_send_event_errors",
+              "legendFormat": "Send errors",
+              "refId": "C"
+            },
+            {
+              "expr": "event_exporter_watch_errors",
+              "legendFormat": "Watch errors",
+              "refId": "D"
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto"
+          }
+        }
+      ]
+    }
+  mongodb.json: |
+    {
+      "id": null,
+      "uid": "mongodb-monitoring",
+      "title": "MongoDB Monitoring",
+      "tags": ["mongodb", "kubernetes"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "MongoDB Availability",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          },
+          "targets": [
+            {
+              "expr": "mongodb_up",
+              "legendFormat": "MongoDB up",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": 0},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "values": false
+            },
+            "orientation": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          }
+        },
+        {
+          "id": 2,
+          "title": "MongoDB Assertions by Type",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 6,
+            "y": 0
+          },
+          "targets": [
+            {
+              "expr": "mongodb_asserts_total",
+              "legendFormat": "{{type}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "MongoDB Connections",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 9
+          },
+          "targets": [
+            {
+              "expr": "mongodb_connections",
+              "legendFormat": "{{state}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        }
+      ]
+    }
+  nodes.json: |
+    {
+      "uid": "k8s-nodes",
+      "title": "Kubernetes Nodes",
+      "tags": ["kubernetes", "nodes", "infrastructure"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Node CPU Usage (%)",
+          "type": "timeseries",
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Node Memory Usage (%)",
+          "type": "timeseries",
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 10},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
+          ]
+        }
+      ]
+    }
+  pods.json: |
+    {
+      "uid": "k8s-pods",
+      "title": "Kubernetes - Pods",
+      "tags": ["kubernetes", "pods", "monitoring"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Container Restarts by Pod",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "targets": [
+            {
+              "expr": "sum by (namespace, pod) (kube_pod_container_status_restarts_total)",
+              "legendFormat": "{{namespace}} / {{pod}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "title": "OOMKilled Containers",
+          "type": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 9
+          },
+          "targets": [
+            {
+              "expr": "kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"}",
+              "legendFormat": "{{namespace}} / {{pod}} / {{container}}",
+              "refId": "A",
+              "format": "table",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true
+          }
+        },
+        {
+          "id": 3,
+          "title": "Memory Limits by Pod",
+          "type": "barchart",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 9
+          },
+          "targets": [
+            {
+              "expr": "sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\",unit=\"byte\"})",
+              "legendFormat": "{{namespace}} / {{pod}}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "showValue": "always"
+          }
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    grafana_dashboard: "1"
+  name: grafana-dashboards
+  namespace: monitoring

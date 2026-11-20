@@ -1,0 +1,31 @@
+grafana:
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+      
+  persistence:
+    enabled: true
+    type: sts
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+
+alertmanager:
+  enabled: true

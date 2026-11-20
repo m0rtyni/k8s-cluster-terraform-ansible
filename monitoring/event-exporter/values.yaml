@@ -1,0 +1,47 @@
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+service:
+  enabled: true
+  port: 2112
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  additionalLabels:
+    release: monitoring
+
+config:
+  logLevel: info
+  logFormat: json
+  maxEventAgeSeconds: 60
+  metricsNamePrefix: "event_exporter_"
+
+  route:
+    routes:
+      - match:
+          - receiver: "prometheus"
+
+  receivers:
+    - name: "prometheus"
+      prometheus:
+        eventsMetricsNamePrefix: "event_exporter_"
+        reasonFilter:
+          Pod:
+            - "FailedMount"
+            - "FailedScheduling"
+            - "BackOff"
+            - "Unhealthy"
+            - "OOMKilled"
+          Node:
+            - "NotReady"
+            - "MemoryPressure"
+            - "DiskPressure"
+            - "NetworkUnavailable"
