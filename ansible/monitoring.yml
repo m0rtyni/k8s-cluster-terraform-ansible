@@ -1,0 +1,8 @@
+---
+- name: Configure Kubernetes logging
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  roles:
+    - setup-logging
